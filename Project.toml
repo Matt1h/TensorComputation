@@ -1,0 +1,13 @@
+name = "TensorToolkit"
+uuid = "9a8bf7b3-d976-4343-8ec1-81343b313dfb"
+authors = ["Matthias Holzenkamp"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

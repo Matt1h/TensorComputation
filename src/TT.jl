@@ -3,8 +3,8 @@ using LinearAlgebra
 using TensorOperations
 
 
-struct TT{T1<:Real} <: AbstractTensor
-    core::AbstractArray  # TODO: cores with own type, that includes DeCompType?
+struct TT{T1<:Real} <: AbstractArray
+    core::AbstractArray
     DeCompType::AbstractString
     order::Int
     ranks::AbstractArray
@@ -19,7 +19,7 @@ struct TT{T1<:Real} <: AbstractTensor
         cores = Array{AbstractArray}(undef, (p+1, 1))
         
         # first core
-        cores[1] = zeros(1, d + add_one, m)
+        cores[1] = zeros(T1, 1, d + add_one, m)
         if add_one
             cores[1][1, 1, :] .= 1
             cores[1][1, 2:end, :] = psi[1].(X)
@@ -29,7 +29,7 @@ struct TT{T1<:Real} <: AbstractTensor
 
         # middel cores
         for i in range(2, p)
-            cores[i] = zeros(m, d + add_one, m)
+            cores[i] = zeros(T1, m, d + add_one, m)
             if add_one
                 for j in range(1, m)
                     cores[i][j, 1, j] = 1
@@ -43,7 +43,7 @@ struct TT{T1<:Real} <: AbstractTensor
         end
     
         # last core
-        cores[p+1] = zeros(m, m, 1)
+        cores[p+1] = zeros(T1, m, m, 1)
         for i in range(1, m)
             cores[p+1][i, i, 1] = 1
         end
@@ -58,7 +58,7 @@ struct TT{T1<:Real} <: AbstractTensor
         ColDim = repeat([1], order)  # TODO: when isnt this 1?
         RowDim = push!(repeat([d + add_one], order-1), m)
 
-        return new{T1}(cores, TT_type, order, ranks, ColDim, RowDim)
+        return new{T1, T2, T3, T4}(cores, TT_type, order, ranks, ColDim, RowDim)
     end
 end
 

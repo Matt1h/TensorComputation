@@ -9,7 +9,7 @@ function kuramoto!(dθ, θ, param, t)
     for i in 1:N
 		dθ[i] = ω[i] + K*mean(sin(θ[j] - θ[i]) for j in 1:N)
 	end
-end;
+end
 
 
 function CalDerivative(u, dt)
@@ -29,8 +29,8 @@ end
 
 # kuramoto parameters
 n = 100
-tmax = 1000
-dt = 1
+tmax = 10
+dt = 0.01
 θ₀ = 2*π * collect(range(0,stop=1,length=n)) .- π
 tspan = (0.0, tmax)
 K = 2
@@ -54,7 +54,32 @@ m = size(X, 1)
 Xi = pinv(Theta, p)
 @tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
 
+
+# calculate Xi with sparse optimization
+function optimize(Theta, dX, lambda)
+    p = Theta.order-1
+    m = size(X, 1)
+    n = size(X, 2)
+
+    Xi = pinv(Theta, p)
+    @tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+    Xi = matricize(Xi)
+
+    Theta = matricize(Theta)'
+    for k in range(1, 100)
+        smallinds = collect(abs.(Xi) .< lambda)
+        Xi[smallinds] .= 0
+        for idx in range(1, n)
+            biginds = collect(.!smallinds[:, idx])
+            Xi[biginds, idx] = Theta[:, biginds]\dX[:, idx]
+        end
+    end
+    return Xi
+end
+
+Xi = optimize(Theta, dX, 0.01)
+
 # reconstruct derivatives
-Xi = matricize(Xi)
+# Xi = matricize(Xi)
 Theta = matricize(Theta)'
 Y = Theta*Xi

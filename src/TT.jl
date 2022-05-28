@@ -1,25 +1,30 @@
 using SparseArrays
 using LinearAlgebra
 using TensorOperations
+using StaticArrays
+
+struct TTCore
+    a::StaticArray
+end
 
 
-struct TT{T1<:Real} <: AbstractArray
-    core::AbstractArray
-    DeCompType::AbstractString
-    order::Int
-    ranks::AbstractArray
-    ColDim::AbstractArray
-    RowDim::AbstractArray
+struct TT{T<:Real, N, T1<:AbstractArray, T2<:AbstractString, T3<:Int, T4<:AbstractArray} <: AbstractArray{T, N}
+    cores::T1
+    DeCompType::T2
+    order::T3
+    ranks::T4
+    ColDims::T4
+    RowDims::T4
 
 
-    function TT(X::AbstractArray{T1}, psi::AbstractArray, TT_type::AbstractString, add_one::Bool=true) where{T1}
+    function TT(X::AbstractArray{T, N}, psi::AbstractArray, TT_type::AbstractString, add_one::Bool=true) where{T, N}
         d, m = size(X)  
         p = length(psi)
         order = p + 1
-        cores = Array{AbstractArray}(undef, (p+1, 1))
+        cores = Array{AbstractArray}(undef, (p+1, 1))  # TODO: change
         
         # first core
-        cores[1] = zeros(T1, 1, d + add_one, m)
+        cores[1] = zeros(T, 1, d + add_one, m)
         if add_one
             cores[1][1, 1, :] .= 1
             cores[1][1, 2:end, :] = psi[1].(X)
@@ -29,7 +34,7 @@ struct TT{T1<:Real} <: AbstractArray
 
         # middel cores
         for i in range(2, p)
-            cores[i] = zeros(T1, m, d + add_one, m)
+            cores[i] = zeros(T, m, d + add_one, m)
             if add_one
                 for j in range(1, m)
                     cores[i][j, 1, j] = 1
@@ -43,22 +48,21 @@ struct TT{T1<:Real} <: AbstractArray
         end
     
         # last core
-        cores[p+1] = zeros(T1, m, m, 1)
+        cores[p+1] = zeros(T, m, m, 1)
         for i in range(1, m)
             cores[p+1][i, i, 1] = 1
         end
         
         # dims
-        ranks = Array{Int}(undef, order+1, 1)
+        ranks = Vector{Int}(undef, order+1)
         for i in range(1, order)
             ranks[i] = size(cores[i], 1)
         end
         ranks[order+1] = size(cores[p+1], 3)
         
-        ColDim = repeat([1], order)  # TODO: when isnt this 1?
-        RowDim = push!(repeat([d + add_one], order-1), m)
-
-        return new{T1, T2, T3, T4}(cores, TT_type, order, ranks, ColDim, RowDim)
+        ColDims = repeat([1], order)  # TODO: when isnt this 1?
+        RowDims = push!(repeat([d + add_one], order-1), m)
+        return new{T, N, typeof(cores), typeof(TT_type), typeof(order), typeof(ranks)}(cores, TT_type, order, ranks, ColDims, RowDims)
     end
 end
 
@@ -144,3 +148,12 @@ function matricize(A::TT{T}) where{T}
     end
     return reshape(M, size(M, 1), size(M, 2))
 end
+
+psi = [sin, cos]
+X = [3 4 1; 
+    1 1.2 2; 
+    1 2 3; 
+    0 9 2]
+X = X'
+
+M = TT(X, psi, "function_major")

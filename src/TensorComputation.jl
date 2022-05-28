@@ -1,5 +1,5 @@
 module TensorComputation
-
+abstract type AbstractTensor end
 
 include("./TT.jl")
 export TT

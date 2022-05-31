@@ -1,8 +1,10 @@
 using TensorComputation
 using Random
 using TensorOperations
-using BenchmarkTools
 using Tullio
+using LoopVectorization
+using BenchmarkTools
+
 
 
 function SpeedTest1()
@@ -23,4 +25,4 @@ function SpeedTest2()
     @tullio A[a, b, c] = W[a, l]*A[l, b, c]
 end
 
-@benchmark SpeedTest1()
+@benchmark SpeedTest2()

@@ -14,5 +14,6 @@ export ortho_right!
 
 export pinv
 
+export full
 export matricize
 end

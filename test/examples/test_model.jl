@@ -1,6 +1,8 @@
 using DifferentialEquations
 using TensorOperations
 using TensorComputation
+using Lasso
+using SparseArrays
 
 
 function test_model!(dx, x, param, t)
@@ -25,13 +27,13 @@ function CalDerivative(u, dt)
 end
 
 
-function optimize(Theta, dX, lambda)
+function optimize_matricized(Theta, dX, lambda)
     p = Theta.order-1
     m = size(X, 1)
     n = size(X, 2)
 
     Xi = pinv(Theta, p)
-    @tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+    @tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]
     Xi = matricize(Xi)
 
     Theta = matricize(Theta)'
@@ -47,25 +49,44 @@ function optimize(Theta, dX, lambda)
 end
 
 
-function optimize(Theta, dX, lambda)
+function threshold(A::TT{T}, lamda::Real) where{T}
+    A_full = full(A)
+    smallinds = collect(abs.(A_full) .< lamda)
+    smallinds_TT = TT(smallinds)
+    for i in range(1, A.order)
+        # new_core = zeros(T, A.ranks[i], A.RowDims[i], A.ranks[i+1])
+        idx = findall(smallinds_TT.cores[i] .!= 0)
+        A.cores[i][idx] = A.cores[i][idx] .* smallinds_TT.cores[i][idx]
+        # new_core[idx] = A.cores[i][idx] .* smallinds_TT.cores[i][idx]
+        # A.cores[i][findall(smallinds_TT.cores[i] .!= 0)] .= T(0)
+    end
+    return A
+end
+
+
+function optimize_TT(Theta, dX, lambda)
     p = Theta.order-1
     m = size(dX, 1)
     n = size(dX, 2)
 
     Xi = pinv(Theta, p)
-    @tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+    @tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]
+    Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order], 2)
+    # Xi_M = matricize(Xi)
+    Xi_full = full(Xi)
+    # smallinds = TT(collect(abs.(Xi_full) .< lambda))
 
-    for k in range(1, 100)
-        Xi_M = matricize(Xi)
-        smallinds = collect(abs.(Xi_M) .< lambda)
-        Xi[smallinds] .= 0
+    # for k in range(1, 100)
+    #     Xi_full = full(Xi)
+    #     smallinds = TT(collect(abs.(Xi_full) .< lambda))
+    #     # Xi[smallinds] .= 0
 
-        for idx in range(1, n)
-            biginds = collect(.~smallinds[:, idx])
-            Xi[biginds, idx] = Theta[:, biginds]\dX[:, idx]
-        end
+    #     for idx in range(1, n)
+    #         biginds = collect(.~smallinds[:, idx])
+    #         Xi[biginds, idx] = Theta[:, biginds]\dX[:, idx]
+    #     end
 
-    end
+    # end
 end
 
 
@@ -93,11 +114,36 @@ Theta = TT(X', psi, "function_major")
 p = Theta.order-1
 m = size(X, 1)
 Xi = pinv(Theta, p)
-@tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+@tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]  # TODO: this should be a function that changes RowDims too
+Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order], 2)
 
-# Xi = optimize(Theta, dX, 0.01)
+# lamda1 = 0.1
+# lamda2 = 0.000001
+# A = Xi
+# A_full = full(A)
+# smallinds1 = collect(abs.(A_full) .< lamda1)
+# smallinds2 = collect(abs.(A_full) .< lamda2)
+# smallinds_TT1 = TT(smallinds1)
+# smallinds_TT2 = TT(smallinds2)
+# idx1 = findall(smallinds_TT1.cores[1] .== 1)
+# idx2 = findall(smallinds_TT2.cores[1] .== 1)
+# for i in range(1, A.order)
+#     A.cores[i][findall(smallinds_TT1.cores[i] .== 1)] .= 0.0
+# end
+# matricize(A)
+
+Xi_M = matricize(Xi)
+Xi = matricize(threshold(Xi, 0.0001))
+
+
+# Xi_M = optimize_TT(Theta, dX, 0.01)
 
 # # reconstruct derivatives
-Xi = matricize(Xi)
+# Xi_M = matricize(Xi)
 # Theta = matricize(Theta)'
 # Y = Theta*Xi
+
+# # fit Data in Matrixformat with Lasso
+# f = fit(LassoPath, Matrix(matricize(Theta)'), dX[:, 2], standardize = false, intercept = false, λ=[0.001; 0.0001; 0.00001; 0.000001])
+# f = fit(LassoPath, Matrix(matricize(Theta)'), dX[:, 1], λ=[0.001; 0.0001; 0.00001; 0.000001])
+# f.coefs

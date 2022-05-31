@@ -1,4 +1,4 @@
-using Distributions, DifferentialEquations, Plots
+using Distributions, DifferentialEquations
 using TensorOperations
 using TensorComputation
 
@@ -52,7 +52,7 @@ Theta = TT(X', psi, "function_major")
 p = Theta.order-1
 m = size(X, 1)
 Xi = pinv(Theta, p)
-@tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+@tensor Xi.cores[Xi.order].a[i, j, k] := Xi.cores[Xi.order].a[i, m, k]*dX[m, j]
 
 
 # calculate Xi with sparse optimization
@@ -62,7 +62,7 @@ function optimize(Theta, dX, lambda)
     n = size(X, 2)
 
     Xi = pinv(Theta, p)
-    @tensor Xi.core[Xi.order][i, j, k] := Xi.core[Xi.order][i, m, k]*dX[m, j]
+    @tensor Xi.cores[Xi.order].a[i, j, k] := Xi.cores[Xi.order].a[i, m, k]*dX[m, j]
     Xi = matricize(Xi)
 
     Theta = matricize(Theta)'

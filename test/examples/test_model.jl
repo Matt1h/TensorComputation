@@ -33,7 +33,7 @@ function optimize_matricized(Theta, dX, lambda)
     n = size(X, 2)
 
     Xi = pinv(Theta, p)
-    @tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]
+    @tensor Xi.cores[Xi.order].a[i, j, k] := Xi.cores[Xi.order].a[i, m, k]*dX[m, j]
     Xi = matricize(Xi)
 
     Theta = matricize(Theta)'
@@ -54,11 +54,7 @@ function threshold(A::TT{T}, lamda::Real) where{T}
     smallinds = collect(abs.(A_full) .< lamda)
     smallinds_TT = TT(smallinds)
     for i in range(1, A.order)
-        # new_core = zeros(T, A.ranks[i], A.RowDims[i], A.ranks[i+1])
-        idx = findall(smallinds_TT.cores[i] .!= 0)
-        A.cores[i][idx] = A.cores[i][idx] .* smallinds_TT.cores[i][idx]
-        # new_core[idx] = A.cores[i][idx] .* smallinds_TT.cores[i][idx]
-        # A.cores[i][findall(smallinds_TT.cores[i] .!= 0)] .= T(0)
+        A.cores[i].a[findall(smallinds_TT.cores[i].a .== 0)] .= T(0)
     end
     return A
 end
@@ -70,7 +66,7 @@ function optimize_TT(Theta, dX, lambda)
     n = size(dX, 2)
 
     Xi = pinv(Theta, p)
-    @tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]
+    @tensor Xi.cores[Xi.order].a[i, j, k] := Xi.cores[Xi.order].a[i, m, k]*dX[m, j]
     Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order], 2)
     # Xi_M = matricize(Xi)
     Xi_full = full(Xi)
@@ -114,8 +110,8 @@ Theta = TT(X', psi, "function_major")
 p = Theta.order-1
 m = size(X, 1)
 Xi = pinv(Theta, p)
-@tensor Xi.cores[Xi.order][i, j, k] := Xi.cores[Xi.order][i, m, k]*dX[m, j]  # TODO: this should be a function that changes RowDims too
-Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order], 2)
+@tensor Xi.cores[Xi.order].a[i, j, k] := Xi.cores[Xi.order].a[i, m, k]*dX[m, j]  # TODO: this should be a function that changes RowDims too
+Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order].a, 2)
 
 # lamda1 = 0.1
 # lamda2 = 0.000001
@@ -133,7 +129,7 @@ Xi.RowDims[Xi.order] = size(Xi.cores[Xi.order], 2)
 # matricize(A)
 
 Xi_M = matricize(Xi)
-Xi = matricize(threshold(Xi, 0.0001))
+Xi = matricize(threshold(Xi, 0.1))
 
 
 # Xi_M = optimize_TT(Theta, dX, 0.01)
